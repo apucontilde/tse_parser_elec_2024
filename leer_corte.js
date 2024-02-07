@@ -1,15 +1,13 @@
 const jsonh = require('./jsonh.js');
-0
-const response = await fetch("https://www.tse.go.cr/APISVR2024/cortes/ultimo");
-const corte = await response.json();
+const { partidos } = require('./partidos.js')
+const { DIVISION } = require('./division.js')
+const { asignacion_regidurias } = require('./asignacion_regidurias.js')
 
 // LECTURA DE LOS DATOS EN EL ARCHIVO
-const { partidos } = require('./partidos.js')
 const partidos_por_codigo = Object.fromEntries(partidos.map((partido) => [partido.codigo, partido]))
-const { DIVISION } = require('./division.js')
 const division_por_provincia_canton = Object.fromEntries(DIVISION.map((canton) => [`${canton.n1}${canton.n2}`, canton]))
 
-const votosPorCantonYPartido = (data) => {
+const votosPorCantonYPartido = (data, es_regiduria) => {
     let por_canton = Object.groupBy(data, ({ n1, n2 }) => `${n1}${n2}`)
     let v_por_canton_por_partido = {}
     for (const [codigo_canton, datos] of Object.entries(por_canton)) {
@@ -30,29 +28,30 @@ const votosPorCantonYPartido = (data) => {
             })
         }
         v_por_canton_por_partido[provincia_canton].votos_validos = votos_validos
+        if (es_regiduria) {
+            v_por_canton_por_partido[provincia_canton].regidurias = asignacion_regidurias[provincia_canton.replace(/\s/g, '')]
+        }
     }
     return v_por_canton_por_partido
 }
 
+(async () => {
+    const response = await fetch("https://www.tse.go.cr/APISVR2024/cortes/ultimo");
+    const corte = await response.json();
 
-const lecturaResultados = async (ls) => {
-    var res = ls.e;
-    var decode = jsonh.unpack(res);
+    var alcaldias_regidurias = jsonh.unpack(corte.e);
 
-    let arrAlcaldias = decode.find(item => item.id === "A");
-    let arrRegidurias = decode.find(item => item.id === "R");
+    let arrAlcaldias = alcaldias_regidurias.find(item => item.id === "A");
+    let arrRegidurias = alcaldias_regidurias.find(item => item.id === "R");
 
     let alcaldias = jsonh.unpack(arrAlcaldias.l);
     let regidurias = jsonh.unpack(arrRegidurias.l);
 
     let alcaldias_por_canton_y_partido = votosPorCantonYPartido(alcaldias)
-    let regidurias_por_canton_y_partido = votosPorCantonYPartido(regidurias)
+    let regidurias_por_canton_y_partido = votosPorCantonYPartido(regidurias, true)
 
-    console.log(`corte ${ls.n} fecha ${ls.f} hora ${ls.h}`);
-    // console.log(Object.entries(alcaldias_por_canton_y_partido)[0])
-    // console.log(Object.entries(regidurias_por_canton_y_partido)[0])
-    console.log(alcaldias_por_canton_y_partido["PUNTARENAS.MONTEVERDE"])
+    console.log(`corte ${corte.n} fecha ${corte.f} hora ${corte.h}`);
+    console.log(alcaldias_por_canton_y_partido["CARTAGO.JIMENEZ"])
+    console.log(regidurias_por_canton_y_partido["CARTAGO.JIMENEZ"])
 
-    return { corte: ls.n, fecha: ls.f, hora: ls.h, alcaldias_por_canton_y_partido, regidurias_por_canton_y_partido }
-};
-lecturaResultados(corte)
+})();

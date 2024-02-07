@@ -5,3 +5,8 @@
 - bun
 ## Pasos
 1. correr `bun leer_corte.js`
+
+
+## Referencias 
+
+- tse.go.cr
